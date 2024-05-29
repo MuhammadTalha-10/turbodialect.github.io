@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/errors/papercut/no-done.futil
+9 |    group no_drive {
+  |    ^^^^^^^^^^^^^^^^ Malformed Structure: No writes to the `done' hole for group `no_drive'

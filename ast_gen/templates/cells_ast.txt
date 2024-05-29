@@ -1,0 +1,12 @@
+cells{
+    name->n{
+        class:register,
+        width:value,
+    }
+    name->n{
+        class:const,
+        width:value,
+        val:value
+    }
+}
+

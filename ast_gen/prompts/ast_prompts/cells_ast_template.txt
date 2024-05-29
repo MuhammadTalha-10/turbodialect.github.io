@@ -1,0 +1,5 @@
+Following is the template for the abstract syntax tree.
+```
+cells{name{class:register,width:value}name{class:const,width:value,val:value}...}
+```
+

@@ -1,0 +1,111 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(32);
+    e = std_reg(32);
+    add1 = std_add(32);
+    add3 = std_add(32);
+    add5 = std_add(32);
+    mult0 = std_mult_pipe(32);
+  }
+  wires {
+    group let0 {
+      add1.left = 32'd2;
+      add1.right = 32'd4;
+      a.in = add1.out;
+      a.write_en = 1'd1;
+      let0[done] = a.done;
+    }
+    group let1 {
+      add1.left = 32'd2;
+      add1.right = 32'd4;
+      a.in = add1.out;
+      a.write_en = 1'd1;
+      let1[done] = a.done;
+    }
+    group let2 {
+      add3.left = 32'd2;
+      add3.right = 32'd4;
+      a.in = add3.out;
+      a.write_en = 1'd1;
+      let2[done] = a.done;
+    }
+    group let3 {
+      add3.left = 32'd2;
+      add3.right = 32'd4;
+      a.in = add3.out;
+      a.write_en = 1'd1;
+      let3[done] = a.done;
+    }
+    group let4 {
+      add5.left = 32'd2;
+      add5.right = 32'd4;
+      e.in = add5.out;
+      e.write_en = 1'd1;
+      let4[done] = e.done;
+    }
+    group let5 {
+      add5.left = 32'd2;
+      add5.right = 32'd4;
+      e.in = add5.out;
+      e.write_en = 1'd1;
+      let5[done] = e.done;
+    }
+    group m0 {
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m0[done] = mult0.done;
+    }
+    group m1 {
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m1[done] = mult0.done;
+    }
+    group m2 {
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m2[done] = mult0.done;
+    }
+    group m3 {
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m3[done] = mult0.done;
+    }
+    group m4 {
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m4[done] = mult0.done;
+    }
+    group m5 {
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m5[done] = mult0.done;
+    }
+  }
+  control {
+    seq {
+      let0;
+      let1;
+      let2;
+      let3;
+      let4;
+      let5;
+      m0;
+      m1;
+      m2;
+      m3;
+      m4;
+      m5;
+    }
+  }
+}
+---STDERR---
+{"main":{"std_add_WIDTH_32":{"2":3},"std_mult_pipe_WIDTH_32":{"6":1},"std_reg_WIDTH_32":{"2":1,"4":1}}}

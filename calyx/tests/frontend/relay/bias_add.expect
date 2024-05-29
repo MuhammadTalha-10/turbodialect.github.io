@@ -1,0 +1,186 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+import "primitives/math.futil";
+component bias_add_1x64x512x256() -> () {
+  cells {
+    ref x = seq_mem_d4(32,1,64,512,256,1,7,10,9);
+    ref bias = seq_mem_d1(32,64,7);
+    ref x1 = seq_mem_d4(32,1,64,512,256,1,7,10,9);
+    __i0 = std_reg(1);
+    __j0 = std_reg(7);
+    __k0 = std_reg(10);
+    __l0 = std_reg(9);
+    add0 = std_fp_sadd(32,16,16);
+    add1 = std_add(9);
+    add2 = std_add(10);
+    add3 = std_add(7);
+    add4 = std_add(1);
+    bias_read0_0 = std_reg(32);
+    const0 = std_const(1,0);
+    const1 = std_const(1,0);
+    const10 = std_const(7,1);
+    const11 = std_const(1,1);
+    const2 = std_const(7,0);
+    const3 = std_const(7,63);
+    const4 = std_const(10,0);
+    const5 = std_const(10,511);
+    const6 = std_const(9,0);
+    const7 = std_const(9,255);
+    const8 = std_const(9,1);
+    const9 = std_const(10,1);
+    le0 = std_le(1);
+    le1 = std_le(7);
+    le2 = std_le(10);
+    le3 = std_le(9);
+    x_read0_0 = std_reg(32);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = __i0.out;
+      le0.right = const1.out;
+    }
+    comb group cond1 {
+      le1.left = __j0.out;
+      le1.right = const3.out;
+    }
+    comb group cond2 {
+      le2.left = __k0.out;
+      le2.right = const5.out;
+    }
+    comb group cond3 {
+      le3.left = __l0.out;
+      le3.right = const7.out;
+    }
+    group let0<"promotable"=1> {
+      __i0.in = const0.out;
+      __i0.write_en = 1'd1;
+      let0[done] = __i0.done;
+    }
+    group let1<"promotable"=1> {
+      __j0.in = const2.out;
+      __j0.write_en = 1'd1;
+      let1[done] = __j0.done;
+    }
+    group let2<"promotable"=1> {
+      __k0.in = const4.out;
+      __k0.write_en = 1'd1;
+      let2[done] = __k0.done;
+    }
+    group let3<"promotable"=1> {
+      __l0.in = const6.out;
+      __l0.write_en = 1'd1;
+      let3[done] = __l0.done;
+    }
+    group let4<"promotable"=2> {
+      x_read0_0.in = x.read_data;
+      x_read0_0.write_en = x.done;
+      let4[done] = x_read0_0.done;
+      x.content_en = 1'd1;
+      x.addr3 = __l0.out;
+      x.addr2 = __k0.out;
+      x.addr1 = __j0.out;
+      x.addr0 = __i0.out;
+    }
+    group let5<"promotable"=2> {
+      bias_read0_0.in = bias.read_data;
+      bias_read0_0.write_en = bias.done;
+      let5[done] = bias_read0_0.done;
+      bias.content_en = 1'd1;
+      bias.addr0 = __j0.out;
+    }
+    group upd0<"promotable"=1> {
+      x1.content_en = 1'd1;
+      x1.addr3 = __l0.out;
+      x1.addr2 = __k0.out;
+      x1.addr1 = __j0.out;
+      x1.addr0 = __i0.out;
+      x1.write_en = 1'd1;
+      add0.left = x_read0_0.out;
+      add0.right = bias_read0_0.out;
+      x1.write_data = add0.out;
+      upd0[done] = x1.done;
+    }
+    group upd1<"promotable"=1> {
+      __l0.write_en = 1'd1;
+      add1.left = __l0.out;
+      add1.right = const8.out;
+      __l0.in = add1.out;
+      upd1[done] = __l0.done;
+    }
+    group upd2<"promotable"=1> {
+      __k0.write_en = 1'd1;
+      add2.left = __k0.out;
+      add2.right = const9.out;
+      __k0.in = add2.out;
+      upd2[done] = __k0.done;
+    }
+    group upd3<"promotable"=1> {
+      __j0.write_en = 1'd1;
+      add3.left = __j0.out;
+      add3.right = const10.out;
+      __j0.in = add3.out;
+      upd3[done] = __j0.done;
+    }
+    group upd4<"promotable"=1> {
+      __i0.write_en = 1'd1;
+      add4.left = __i0.out;
+      add4.right = const11.out;
+      __i0.in = add4.out;
+      upd4[done] = __i0.done;
+    }
+  }
+  control {
+    seq {
+      @pos(0) let0;
+      @bound(1) while le0.out with cond0 {
+        seq {
+          @pos(1) let1;
+          @bound(64) while le1.out with cond1 {
+            seq {
+              @pos(2) let2;
+              @bound(512) while le2.out with cond2 {
+                seq {
+                  @pos(3) let3;
+                  @bound(256) while le3.out with cond3 {
+                    seq {
+                      par {
+                        @pos(4) let4;
+                        @pos(5) let5;
+                      }
+                      @pos(6) upd0;
+                      @pos(3) upd1;
+                    }
+                  }
+                  @pos(2) upd2;
+                }
+              }
+              @pos(1) upd3;
+            }
+          }
+          @pos(0) upd4;
+        }
+      }
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    @external x = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external bias = seq_mem_d1(32, 64, 7);
+    @external x1 = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    bias_add_1x64x512x256_ = bias_add_1x64x512x256();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke bias_add_1x64x512x256_[x=x, bias=bias, x1=x1]()();
+    }
+  }
+}
+metadata #{
+0: let %x1: Tensor[(1, 64, 512, 256), float32] /* ty=Tensor[(1, 64, 512, 256), float32] span=from_string:4:3 */ = nn.bias_add(%x, %bias) /* ty=Tensor[(1, 64, 512, 256), float32] span=from_string:3:49 */;
+}#

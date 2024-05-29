@@ -1,0 +1,24 @@
+// -p canonicalize
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main() -> (out: 1) {
+  cells {
+    r = std_reg(1);
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+  }
+  wires {
+    group b {
+      r.in = 1'd1 ? r.out;
+      r.write_en = r.out ? 1'd1;
+      b[done] = r.done ? 1'd1;
+    }
+    comb group c {
+      r.in = 1'd1 ? r.out;
+      r.write_en = r.out ? 1'd1;
+    }
+    r.in = 1'd1 ? r.out;
+    r.write_en = r.out ? 1'd1;
+  }
+  control { }
+}

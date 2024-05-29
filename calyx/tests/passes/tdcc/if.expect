@@ -1,0 +1,14 @@
+======== main:tdcc =========
+0:
+  wrapper_early_reset_cond0[go] = !wrapper_early_reset_cond0[done] ? 1'd1;
+1:
+  true[go] = !true[done] ? 1'd1;
+2:
+  false[go] = !false[done] ? 1'd1;
+3:
+  <end>
+transitions:
+  (0, 1): wrapper_early_reset_cond0[done] & comb_reg.out
+  (0, 2): wrapper_early_reset_cond0[done] & !comb_reg.out
+  (1, 3): true[done]
+  (2, 3): false[done]

@@ -1,0 +1,55 @@
+firrtl.pdf
+sim/*.v
+sim/*.vcd
+test.fuse
+compiled/
+README.html
+*.o
+benchmarks/_headers/
+!benchmarks/_headers/fxp_sqrt.h
+benchmarks/*.futil
+*.pre
+*.out
+*.run*
+target
+*.bak
+.DS_Store
+*.png
+*.dot
+*.vcd
+*.sav
+node_modules
+*.json
+*.res
+*.ipynb_checkpoints
+*.old
+book/
+
+# fud ignore
+fud/dist
+fud/build
+*.egg-info
+__pycache__
+*.pyc
+*.tar.gz
+*.jou
+
+!.devcontainer/devcontainer.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# cocotb artifacts
+tests/xilinx/cocotb/**/hdl
+sim_build/
+results.xml
+
+# Ignore .fud2 cache
+.fud2/
+
+
+!cider-dap/calyxDebug/package.json
+!cider-dap/calyxDebug/tsconfig.json
+
+# btor2i ignore
+tools/btor2/btor2i/build/

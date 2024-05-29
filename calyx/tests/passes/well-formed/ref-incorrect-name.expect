@@ -1,0 +1,2 @@
+---STDERR---
+Error: Malformed Control: foo does not have ref cell named m1

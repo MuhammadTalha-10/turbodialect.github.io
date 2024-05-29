@@ -1,0 +1,76 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/sync.futil";
+
+component main() -> () {
+  cells {
+    @external out = comb_mem_d1(32, 6, 3);
+    val = std_reg(32);
+    add_0 = std_add(32);
+    addr = std_reg(3);
+    add_1 = std_add(3);
+    lt = std_lt(3);
+  }
+
+  wires {
+    group write {
+      add_0.left = val.out;
+      add_0.right = 32'd1;
+      val.in = add_0.out;
+      val.write_en = 1'd1;
+      write[done] = val.done;
+    }
+
+    group read {
+      out.write_en = 1'd1;
+      out.write_data = val.out;
+      out.addr0 = addr.out;
+      read[done] = out.done;
+    }
+
+    group incr_idx {
+      add_1.left = addr.out;
+      add_1.right = 3'd1;
+      addr.in = add_1.out;
+      addr.write_en = 1'd1;
+      incr_idx[done] = addr.done;
+    }
+
+    comb group cmp {
+      lt.left = addr.out;
+      lt.right = 3'd6;
+    }
+  }
+
+  control {
+    // test barrier for while loops
+    // expected resolution order:
+    // thread 1: N    S r(1) I(0) w(2) S N                S r (3) I(4) w(4) S N                S  r(5) I(5) w(6) S
+    // thread 2: w(1) S N                S r(2) I(1) w(3) S N                S r(4) I(4) w(5)  S  N                S  r(6)
+    par {
+      // thread 1
+      while lt.out with cmp {
+        seq {
+          @sync(1);
+          read;
+          incr_idx;
+          write;
+          @sync(2);
+          @sync(3);
+        }
+      }
+
+      // thread 2
+      while lt.out with cmp {
+        seq {
+          write;
+          @sync(1);
+          @sync(2);
+          read;
+          incr_idx;
+          @sync(3);
+        }
+      }
+    }
+  }
+}

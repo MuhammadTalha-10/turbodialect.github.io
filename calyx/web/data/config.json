@@ -1,0 +1,71 @@
+{
+  "url_prefix": "https://raw.githubusercontent.com/calyxir/calyx/",
+  "examples": [
+    {
+      "name": "Sequence",
+      "file": "tests/correctness/seq.futil",
+      "root": "/",
+      "passes": [
+        "tdcc"
+      ]
+    },
+    {
+      "name": "Conditional",
+      "file": "tests/correctness/if.futil",
+      "root": "/",
+      "passes": [
+        "simplify-with-control",
+        "tdcc"
+      ]
+    },
+    {
+      "name": "Loops",
+      "file": "tests/correctness/while.futil",
+      "root": "/",
+      "passes": [
+        "simplify-with-control",
+        "tdcc"
+      ]
+    },
+    {
+      "name": "Invoke (call)",
+      "file": "tests/passes/compile-invoke/compile-invoke.futil",
+      "root": "/",
+      "passes": [
+        "compile-invoke"
+      ]
+    },
+    {
+      "name": "Parallel",
+      "file": "tests/correctness/par.futil",
+      "root": "/",
+      "passes": [
+        "tdcc"
+      ]
+    },
+    {
+      "name": "Externalize",
+      "file": "tests/passes/externalize.futil",
+      "root": "/",
+      "passes": [
+        "externalize"
+      ]
+    },
+    {
+      "name": "Minimize Regs Simple",
+      "file": "tests/passes/cell-share/simple-liveness.futil",
+      "root": "/",
+      "passes": [
+        "dead-cell-removal"
+      ]
+    },
+    {
+      "name": "Minimize Regs (Nested Par)",
+      "file": "tests/passes/cell-share/nested-par.futil",
+      "root": "/",
+      "passes": [
+        "dead-cell-removal"
+      ]
+    }
+  ]
+}

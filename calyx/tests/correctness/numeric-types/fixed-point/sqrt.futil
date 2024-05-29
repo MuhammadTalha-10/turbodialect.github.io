@@ -1,0 +1,56 @@
+import "primitives/math.futil";
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    @external(1) radicand_31 = comb_mem_d1(31, 1, 1);
+    @external(1) root_31 = comb_mem_d1(31, 1, 1);
+
+    @external(1) radicand_32 = comb_mem_d1(32, 1, 1);
+    @external(1) root_32 = comb_mem_d1(32, 1, 1);
+
+    t_31 = std_reg(31);
+    t_32 = std_reg(32);
+
+    s_31 = fp_sqrt(31, 15, 16);
+    s_32 = fp_sqrt(32, 16, 16);
+  }
+  wires {
+    group save_temporary_31<"static"=1> {
+      t_31.write_en = 1'd1;
+      radicand_31.addr0 = 1'd0;
+      t_31.in = radicand_31.read_data;
+      save_temporary_31[done] = t_31.done ? 1'd1;
+    }
+    group save_sqrt_31<"static"=1> {
+      root_31.addr0 = 1'd0;
+      root_31.write_en = 1'd1;
+      root_31.write_data = s_31.out;
+      save_sqrt_31[done] = root_31.done ? 1'd1;
+    }
+    group save_temporary_32<"static"=1> {
+      t_32.write_en = 1'd1;
+      radicand_32.addr0 = 1'd0;
+      t_32.in = radicand_32.read_data;
+      save_temporary_32[done] = t_32.done ? 1'd1;
+    }
+    group save_sqrt_32<"static"=1> {
+      root_32.addr0 = 1'd0;
+      root_32.write_en = 1'd1;
+      root_32.write_data = s_32.out;
+      save_sqrt_32[done] = root_32.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      save_temporary_31;
+      invoke s_31(in=t_31.out)();
+      save_sqrt_31;
+
+      save_temporary_32;
+      invoke s_32(in=t_32.out)();
+      save_sqrt_32;
+    }
+  }
+}

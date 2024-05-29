@@ -1,0 +1,28 @@
+// -p infer-data-path -p externalize
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    @external(1) A = comb_mem_d1(32, 16, 4);
+    B = comb_mem_d1(32, 16, 4);
+    state = std_reg(32);
+  }
+  wires {
+    group wr_A {
+      A.write_en = 1'b1;
+      A.write_data = 32'd4;
+      state.in = A.read_data;
+      wr_A[done] = A.done;
+    }
+
+    group wr_B {
+      B.write_en = 1'b1;
+      B.write_data = 32'd4;
+      state.in = B.read_data;
+      wr_B[done] = B.done;
+    }
+  }
+  control {}
+}

@@ -1,0 +1,34 @@
+// -x tdcc:dump-fsm -d static-promotion -d post-opt -d group2invoke -d lower -b none
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    add = std_add(32);
+    lt = std_lt(32);
+    r = std_reg(32);
+  }
+
+  wires {
+    group do_add {
+      add.right = 32'd4;
+      add.left = 32'd4;
+      r.in = add.out;
+      r.write_en = 1'd1;
+      do_add[done] = r.done;
+    }
+
+    comb group cond {
+      lt.right = 32'd5;
+      lt.left = 32'd1;
+    }
+
+  }
+
+  control {
+    while lt.out with cond {
+      do_add;
+    }
+  }
+}

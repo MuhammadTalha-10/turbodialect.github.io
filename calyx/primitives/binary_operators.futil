@@ -1,0 +1,149 @@
+extern "binary_operators.sv" {
+  /// =================== Unsigned, Fixed Point =========================
+  comb primitive std_fp_add<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](@data left: WIDTH, @data right: WIDTH) ->(out: WIDTH);
+
+  comb primitive std_fp_sub<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](@data left: WIDTH, @data right: WIDTH)->(out: WIDTH);
+
+  primitive std_fp_mult_pipe<"state_share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @interval(3) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    @stable out: WIDTH,
+    @done done: 1
+  );
+
+  primitive std_fp_div_pipe<"state_share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    @stable out_remainder: WIDTH,
+    @stable out_quotient: WIDTH,
+    @done done: 1
+  );
+
+  comb primitive std_fp_gt<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+
+  /// =================== Signed, Fixed Point =========================
+  comb primitive std_fp_sadd<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+
+  comb primitive std_fp_ssub<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+
+  primitive std_fp_smult_pipe<"state_share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @interval(3) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    @stable out: WIDTH,
+    @done done: 1
+  );
+
+  primitive std_fp_sdiv_pipe<"state_share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    @stable out_remainder: WIDTH,
+    @stable out_quotient: WIDTH,
+    @done done: 1
+  );
+
+  comb primitive std_fp_sgt<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+
+  comb primitive std_fp_slt<"share"=1>[
+    WIDTH, INT_WIDTH, FRAC_WIDTH
+  ](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+
+  /// =================== Unsigned, Bitnum =========================
+  /// Other unsigned bitnum primitives are found in the core library,
+  /// since they're required for FSM encoding.
+  primitive std_mult_pipe<"state_share"=1>[WIDTH](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @interval(3) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    @stable out: WIDTH,
+    @done done: 1
+  );
+
+  primitive std_div_pipe<"state_share"=1>[WIDTH](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    @stable out_quotient: WIDTH,
+    @stable out_remainder: WIDTH,
+    @done done: 1
+  );
+
+  /// =================== Signed, Bitnum =========================
+  comb primitive std_sadd<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_ssub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+
+  primitive std_smult_pipe<"state_share"=1>[WIDTH](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @interval(3) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    @stable out: WIDTH,
+    @done done: 1
+  );
+
+  primitive std_sdiv_pipe[WIDTH](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    out_quotient: WIDTH,
+    out_remainder: WIDTH,
+    @done done: 1
+  );
+
+  comb primitive std_sgt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_slt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_seq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sneq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sge<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sle<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_slsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_srsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_signext<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_const_mult<"share"=1>[WIDTH, VALUE](@data in: WIDTH) -> (out: WIDTH);
+}

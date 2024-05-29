@@ -1,0 +1,17 @@
+inputs{
+    name->n{
+        width:1
+    }
+    name->n{
+        width:1
+    }
+}
+outputs{
+    name->n{
+        width:1
+    }
+    name->n{
+        width:1
+    }
+}
+

@@ -1,0 +1,57 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component identity<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    @data r = std_reg(32);
+    @generated invoke0_go = std_wire(1);
+    @generated invoke0_done = std_wire(1);
+  }
+  wires {
+    done = invoke0_done.out ? 1'd1;
+    out = r.out;
+    r.write_en = invoke0_go.out ? 1'd1;
+    r.clk = clk;
+    r.reset = reset;
+    r.in = invoke0_go.out ? in;
+    invoke0_go.in = go;
+    invoke0_done.in = r.done;
+  }
+  control {}
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data id = identity();
+    @data current_value = std_reg(32);
+    @generated fsm = std_reg(2);
+    @generated invoke0_go = std_wire(1);
+    @generated invoke0_done = std_wire(1);
+    @generated invoke1_go = std_wire(1);
+    @generated invoke1_done = std_wire(1);
+    @generated tdcc_go = std_wire(1);
+    @generated tdcc_done = std_wire(1);
+  }
+  wires {
+    done = tdcc_done.out ? 1'd1;
+    fsm.write_en = fsm.out == 2'd2 | fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out | fsm.out == 2'd1 & invoke1_done.out & tdcc_go.out ? 1'd1;
+    fsm.clk = clk;
+    fsm.reset = reset;
+    fsm.in = fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out ? 2'd1;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out == 2'd1 & invoke1_done.out & tdcc_go.out ? 2'd2;
+    id.clk = clk;
+    id.go = invoke0_go.out ? 1'd1;
+    id.reset = reset;
+    id.in = invoke0_go.out ? 32'd10;
+    invoke0_go.in = !invoke0_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
+    tdcc_go.in = go;
+    invoke0_done.in = id.done;
+    invoke1_go.in = !invoke1_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
+    tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
+    current_value.write_en = invoke1_go.out ? 1'd1;
+    current_value.clk = clk;
+    current_value.reset = reset;
+    current_value.in = invoke1_go.out ? id.out;
+    invoke1_done.in = current_value.done;
+  }
+  control {}
+}

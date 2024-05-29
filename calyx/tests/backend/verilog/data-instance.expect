@@ -1,0 +1,162 @@
+module undef #(
+    parameter WIDTH = 32
+) (
+   output logic [WIDTH-1:0] out
+);
+assign out = 'x;
+endmodule
+
+module std_const #(
+    parameter WIDTH = 32,
+    parameter VALUE = 32
+) (
+   output logic [WIDTH-1:0] out
+);
+assign out = VALUE;
+endmodule
+
+module std_wire #(
+    parameter WIDTH = 32
+) (
+   input wire logic [WIDTH-1:0] in,
+   output logic [WIDTH-1:0] out
+);
+assign out = in;
+endmodule
+
+module std_add #(
+    parameter WIDTH = 32
+) (
+   input wire logic [WIDTH-1:0] left,
+   input wire logic [WIDTH-1:0] right,
+   output logic [WIDTH-1:0] out
+);
+assign out = left + right;
+endmodule
+
+module std_lsh #(
+    parameter WIDTH = 32
+) (
+   input wire logic [WIDTH-1:0] left,
+   input wire logic [WIDTH-1:0] right,
+   output logic [WIDTH-1:0] out
+);
+assign out = left << right;
+endmodule
+
+module std_reg #(
+    parameter WIDTH = 32
+) (
+   input wire logic [WIDTH-1:0] in,
+   input wire logic write_en,
+   input wire logic clk,
+   input wire logic reset,
+   output logic [WIDTH-1:0] out,
+   output logic done
+);
+always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 0;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+endmodule
+
+module init_one_reg #(
+    parameter WIDTH = 32
+) (
+   input wire logic [WIDTH-1:0] in,
+   input wire logic write_en,
+   input wire logic clk,
+   input wire logic reset,
+   output logic [WIDTH-1:0] out,
+   output logic done
+);
+always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 1;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+endmodule
+
+module main(
+  input logic go,
+  input logic g,
+  output logic done,
+  input logic clk,
+  input logic reset
+);
+// COMPONENT START: main
+logic [1:0] add_left;
+logic [1:0] add_right;
+logic [1:0] add_out;
+logic [1:0] con_add_left;
+logic [1:0] con_add_right;
+logic [1:0] con_add_out;
+logic [1:0] data_add_left;
+logic [1:0] data_add_right;
+logic [1:0] data_add_out;
+logic [1:0] data_add_multi_left;
+logic [1:0] data_add_multi_right;
+logic [1:0] data_add_multi_out;
+std_add # (
+    .WIDTH(2)
+) add (
+    .left(add_left),
+    .out(add_out),
+    .right(add_right)
+);
+std_add # (
+    .WIDTH(2)
+) con_add (
+    .left(con_add_left),
+    .out(con_add_out),
+    .right(con_add_right)
+);
+std_add # (
+    .WIDTH(2)
+) data_add (
+    .left(data_add_left),
+    .out(data_add_out),
+    .right(data_add_right)
+);
+std_add # (
+    .WIDTH(2)
+) data_add_multi (
+    .left(data_add_multi_left),
+    .out(data_add_multi_out),
+    .right(data_add_multi_right)
+);
+wire _guard0 = 1;
+wire _guard1 = g;
+wire _guard2 = g;
+wire _guard3 = ~_guard2;
+wire _guard4 = g;
+wire _guard5 = g;
+wire _guard6 = g;
+assign data_add_multi_left =
+  _guard1 ? 2'd2 :
+  _guard3 ? 2'd3 :
+  'x;
+always_comb begin
+  if(~$onehot0({_guard3, _guard1})) begin
+    $fatal(2, "Multiple assignment to port `data_add_multi.left'.");
+end
+end
+assign done = 1'd1;
+assign con_add_left =
+  _guard4 ? 2'd2 :
+  2'd0;
+assign data_add_left = 2'd2;
+assign add_left =
+  _guard6 ? 2'd2 :
+  2'd0;
+// COMPONENT END: main
+endmodule

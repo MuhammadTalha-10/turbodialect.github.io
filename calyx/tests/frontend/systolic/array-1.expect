@@ -1,0 +1,201 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/pipelined.futil";
+import "primitives/memories/comb.futil";
+static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
+  cells {
+    acc = std_reg(32);
+    adder = std_fp_sadd(32, 16, 16);
+    mul = pipelined_fp_smult(32, 16, 16);
+  }
+  wires {
+    static<1> group do_add {
+      adder.left = acc.out;
+      adder.right = mul.out;
+      acc.in = adder.out;
+      acc.write_en = mul_ready;
+    }
+    static<1> group do_mul {
+      mul.left = top;
+      mul.right = left;
+    }
+    out = acc.out;
+  }
+  control {
+    static par {
+      do_add;
+      do_mul;
+    }
+  }
+}
+component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> (t0_addr0: 2, l0_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 1) {
+  cells {
+    iter_limit = std_reg(32);
+    iter_limit_add = std_add(32);
+    idx = std_reg(32);
+    idx_add = std_add(32);
+    lt_iter_limit = std_lt(32);
+    depth_plus_0 = std_add(32);
+    depth_plus_5 = std_add(32);
+    index_eq_depth_plus_5 = std_eq(32);
+    index_ge_1 = std_ge(32);
+    index_ge_5 = std_ge(32);
+    index_lt_depth_plus_0 = std_lt(32);
+    index_lt_depth_plus_5 = std_lt(32);
+    idx_between_0_depth_plus_0_comb = std_wire(1);
+    idx_between_1_depth_plus_5_comb = std_and(1);
+    pe_0_0 = mac_pe();
+    top_0_0 = std_reg(32);
+    left_0_0 = std_reg(32);
+    idx_minus_0 = std_sub(32);
+    idx_minus_0_res = std_slice(32, 2);
+  }
+  wires {
+    static<1> group init_iter_limit {
+      iter_limit_add.left = 32'd6;
+      iter_limit_add.right = depth;
+      iter_limit.in = iter_limit_add.out;
+      iter_limit.write_en = 1'd1;
+    }
+    static<1> group init_idx {
+      idx.in = 32'd0;
+      idx.write_en = 1'd1;
+    }
+    static<1> group incr_idx {
+      idx_add.left = idx.out;
+      idx_add.right = 32'd1;
+      idx.in = idx_add.out;
+      idx.write_en = 1'd1;
+    }
+    lt_iter_limit.left = idx.out;
+    lt_iter_limit.right = iter_limit.out;
+    depth_plus_0.left = depth;
+    depth_plus_0.right = 32'd0;
+    depth_plus_5.left = depth;
+    depth_plus_5.right = 32'd5;
+    index_eq_depth_plus_5.left = idx.out;
+    index_eq_depth_plus_5.right = depth_plus_5.out;
+    index_ge_1.left = idx.out;
+    index_ge_1.right = 32'd1;
+    index_ge_5.left = idx.out;
+    index_ge_5.right = 32'd5;
+    index_lt_depth_plus_0.left = idx.out;
+    index_lt_depth_plus_0.right = depth_plus_0.out;
+    index_lt_depth_plus_5.left = idx.out;
+    index_lt_depth_plus_5.right = depth_plus_5.out;
+    idx_between_0_depth_plus_0_comb.in = index_lt_depth_plus_0.out;
+    idx_between_1_depth_plus_5_comb.right = index_lt_depth_plus_5.out;
+    idx_between_1_depth_plus_5_comb.left = index_ge_1.out;
+    idx_minus_0.left = idx.out;
+    idx_minus_0.right = 32'd0;
+    idx_minus_0_res.in = idx_minus_0.out;
+    static<1> group t0_move {
+      t0_addr0 = idx_minus_0_res.out;
+      top_0_0.in = t0_read_data;
+      top_0_0.write_en = 1'd1;
+    }
+    static<1> group l0_move {
+      l0_addr0 = idx_minus_0_res.out;
+      left_0_0.in = l0_read_data;
+      left_0_0.write_en = 1'd1;
+    }
+    static<1> group pe_0_0_out_write {
+      r0_valid = 1'd1;
+      r0_value = pe_0_0.out;
+      r0_idx = 1'd0;
+    }
+  }
+  control {
+    seq {
+      static par {
+        init_idx;
+        init_iter_limit;
+      }
+      while lt_iter_limit.out {
+        static par {
+          incr_idx;
+          static par {
+            static if idx_between_0_depth_plus_0_comb.out {
+              static par {
+                l0_move;
+                t0_move;
+              }
+            }
+            static if idx_between_1_depth_plus_5_comb.out {
+              static par {
+                static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=index_ge_5.out)();
+              }
+            }
+            static if index_eq_depth_plus_5.out {
+              static par {
+                pe_0_0_out_write;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 1) -> (computation_done: 1, out_mem_0_addr0: 1, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
+  cells {
+    delay_reg = std_reg(1);
+  }
+  wires {
+    static<1> group write_r0 {
+      out_mem_0_write_en = r0_valid;
+      out_mem_0_write_data = r0_value;
+      out_mem_0_addr0 = r0_idx;
+    }
+    static<1> group write_done_cond {
+      delay_reg.in = 1'd1;
+      delay_reg.write_en = (r0_valid & (r0_idx == 1'd0)) ? 1'd1;
+      computation_done = delay_reg.done ? 1'd1;
+    }
+  }
+  control {
+    static par {
+      write_done_cond;
+      write_r0;
+    }
+  }
+}
+component main() -> () {
+  cells {
+    systolic_array_component = systolic_array_comp();
+    post_op_component = default_post_op();
+    @external t0 = comb_mem_d1(32, 3, 2);
+    @external l0 = comb_mem_d1(32, 3, 2);
+    @external out_mem_0 = comb_mem_d1(32, 1, 1);
+    systolic_done = std_reg(1);
+    systolic_done_wire = std_wire(1);
+  }
+  wires {
+    group perform_computation {
+      t0.addr0 = systolic_array_component.t0_addr0;
+      systolic_array_component.t0_read_data = t0.read_data;
+      l0.addr0 = systolic_array_component.l0_addr0;
+      systolic_array_component.l0_read_data = l0.read_data;
+      out_mem_0.write_data = post_op_component.out_mem_0_write_data;
+      out_mem_0.write_en = post_op_component.out_mem_0_write_en;
+      out_mem_0.addr0 = post_op_component.out_mem_0_addr0;
+      post_op_component.out_mem_0_done = out_mem_0.done;
+      post_op_component.r0_valid = systolic_array_component.r0_valid;
+      post_op_component.r0_value = systolic_array_component.r0_value;
+      post_op_component.r0_idx = systolic_array_component.r0_idx;
+      systolic_done.write_en = systolic_array_component.done ? 1'd1;
+      systolic_done.in = systolic_array_component.done ? 1'd1;
+      systolic_done_wire.in = (systolic_array_component.done | systolic_done.out) ? 1'd1;
+      systolic_array_component.go = !systolic_done_wire.out ? 1'd1;
+      systolic_array_component.depth = 32'd3;
+      post_op_component.go = 1'd1;
+      perform_computation[done] = post_op_component.computation_done;
+    }
+  }
+  control {
+    perform_computation;
+  }
+}
+metadata #{
+0: pe_0_0: Feeding Boundary PE: [0,depth_plus_0) || Invoking PE: [1, depth_plus_5) || Writing PE Result: depth_plus_5
+}#

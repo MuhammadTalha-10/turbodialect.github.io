@@ -1,0 +1,129 @@
+# =========== Workspace configuration ===========
+[workspace]
+members = [
+    "calyx-ir",
+    "calyx-utils",
+    "calyx-opt",
+    "calyx-frontend",
+    "calyx-stdlib",
+    "calyx-backend",
+    "calyx-lsp",
+    "interp",
+    "web/rust",
+    "tools/data_gen",
+    "cider-dap",
+    "fud2",
+    "fud2/fud-core",
+    "data-conversion",
+    "tools/btor2/btor2i",
+    "tools/cider-data-converter",
+]
+exclude = ["site"]
+
+[workspace.package]
+authors = ["The Calyx Team"]
+license-file = "LICENSE"
+keywords = ["ir", "compiler"]
+repository = "https://github.com/calyxir/calyx"
+readme = "README.md"
+description = "Compiler Infrastructure for Hardware Accelerator Generation"
+categories = ["compilers"]
+homepage = "https://calyxir.org"
+edition = "2021"
+version = "0.7.1"
+rust-version = "1.67"
+
+[workspace.dependencies]
+itertools = "0.11"
+atty = "0.2"
+log = "0.4"
+string-interner = "0.14.0"
+lazy_static = "1"
+linked-hash-map = "0.5"
+smallvec = "1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_sexpr = "0.1.0"
+serde_with = "3"
+pest = "2"
+pest_derive = "2"
+pest_consume = "1"
+argh = "0.1"
+anyhow = "1"
+calyx-utils = { path = "calyx-utils", version = "0.7.1" }
+calyx-ir = { path = "calyx-ir", version = "0.7.1" }
+calyx-frontend = { path = "calyx-frontend", version = "0.7.1" }
+calyx-opt = { path = "calyx-opt", version = "0.7.1" }
+calyx-backend = { path = "calyx-backend", version = "0.7.1" }
+
+[workspace.dependencies.petgraph]
+version = "0.6"
+default-features = false
+features = ["matrix_graph"]
+
+[workspace.dependencies.env_logger]
+version = "0.9.0"
+features = ["termcolor", "atty"]
+default-features = false
+
+
+# =========== Package configuration ===========
+
+[package]
+name = "calyx"
+default-run = "calyx"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+build = "src/build.rs"
+
+[[bin]]
+name = "calyx"
+path = "src/main.rs"
+
+[features]
+default = []
+serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
+yxi = ["serialize", "calyx-backend/yxi", "calyx-ir/yxi"]
+
+[build-dependencies]
+calyx-stdlib = { path = "calyx-stdlib", version = "0.7.1" }
+
+[dependencies]
+atty.workspace = true
+itertools.workspace = true
+log.workspace = true
+serde.workspace = true
+argh.workspace = true
+env_logger.workspace = true
+
+calyx-utils.workspace = true
+calyx-ir.workspace = true
+calyx-frontend.workspace = true
+calyx-opt.workspace = true
+
+[dependencies.calyx-backend]
+workspace = true
+features = ["mlir", "resources", "xilinx"]
+
+[profile.release]
+lto = "thin"
+
+# = ========== Benchmarks ===========
+[dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"] }
+calyx-ir = { path = "calyx-ir" }
+calyx-opt = { path = "calyx-opt" }
+calyx-frontend = { path = "calyx-frontend" }
+
+[[bench]]
+name = "component-sharing"
+harness = false

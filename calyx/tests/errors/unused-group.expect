@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/errors/unused-group.futil
+4 |    group cond {
+  |    ^^^^^^^^^^^^ Unused group `cond'

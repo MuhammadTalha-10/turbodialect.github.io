@@ -1,0 +1,114 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    A0 = seq_mem_d1(32,2,2);
+    A1 = seq_mem_d1(32,2,2);
+    A2 = seq_mem_d1(32,2,2);
+    A3 = seq_mem_d1(32,2,2);
+    acc_00 = std_reg(32);
+    acc_10 = std_reg(32);
+    acc_20 = std_reg(32);
+    acc_30 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    add3 = std_add(32);
+    add4 = std_add(4);
+    const0 = std_const(4,0);
+    const1 = std_const(4,1);
+    const2 = std_const(4,1);
+    i0 = std_reg(4);
+    le0 = std_le(4);
+    res_0 = std_reg(32);
+    slice0 = std_slice(4,2);
+    slice1 = std_slice(4,2);
+    slice2 = std_slice(4,2);
+    slice3 = std_slice(4,2);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"promotable"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group upd0<"promotable"=2> {
+      acc_00.write_en = A0.done;
+      A0.content_en = 1'd1;
+      A0.addr0 = slice0.out;
+      slice0.in = i0.out;
+      acc_00.in = A0.read_data;
+      upd0[done] = acc_00.done;
+    }
+    group upd1<"promotable"=2> {
+      acc_10.write_en = A1.done;
+      A1.content_en = 1'd1;
+      A1.addr0 = slice1.out;
+      slice1.in = i0.out;
+      acc_10.in = A1.read_data;
+      upd1[done] = acc_10.done;
+    }
+    group upd2<"promotable"=2> {
+      acc_20.write_en = A2.done;
+      A2.content_en = 1'd1;
+      A2.addr0 = slice2.out;
+      slice2.in = i0.out;
+      acc_20.in = A2.read_data;
+      upd2[done] = acc_20.done;
+    }
+    group upd3<"promotable"=2> {
+      acc_30.write_en = A3.done;
+      A3.content_en = 1'd1;
+      A3.addr0 = slice3.out;
+      slice3.in = i0.out;
+      acc_30.in = A3.read_data;
+      upd3[done] = acc_30.done;
+    }
+    group upd4<"promotable"=1> {
+      res_0.write_en = 1'd1;
+      add3.left = res_0.out;
+      add3.right = add2.out;
+      add2.left = add1.out;
+      add2.right = acc_30.out;
+      add1.left = add0.out;
+      add1.right = acc_20.out;
+      add0.left = acc_00.out;
+      add0.right = acc_10.out;
+      res_0.in = add3.out;
+      upd4[done] = res_0.done;
+    }
+    group upd5<"promotable"=1> {
+      i0.write_en = 1'd1;
+      add4.left = i0.out;
+      add4.right = const2.out;
+      i0.in = add4.out;
+      upd5[done] = i0.done;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            @pos(0) upd0;
+            @pos(0) upd1;
+            @pos(0) upd2;
+            @pos(0) upd3;
+          }
+          upd4;
+          upd5;
+        }
+      }
+    }
+  }
+}
+metadata #{
+  0:   let acc = A[i];
+}#
+

@@ -1,0 +1,5 @@
+Following is the template for the abstract syntax tree.
+```
+inputs{name{width:1}name{width:1}}outputs{name{width:1}name{width:1}}
+```
+

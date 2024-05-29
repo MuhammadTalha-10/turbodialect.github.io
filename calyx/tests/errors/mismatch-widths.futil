@@ -1,0 +1,12 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main() -> () {
+  cells {
+    add = std_add(32);
+    x = std_reg(16);
+  }
+  wires {
+    add.left = x.out;
+  }
+  control {}
+}

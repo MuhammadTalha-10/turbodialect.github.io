@@ -1,0 +1,23 @@
+The "cells" node will contain the following hardware primitive classes with their parameters in parenthesis.
+- reg (width)
+- lsh (width)
+- rsh (width)
+- add (width)
+- sub (width)
+- not (width)
+- and (width)
+- or (width)
+- xor (width)
+- gt (width)
+- lt (width)
+- eq (width)
+- neq (width)
+- ge (width)
+- le (width)
+- mul (width)
+- const (width,val)
+- slice (inWidth, outWidth)
+- pad (inWidth, outWidth)
+Each cell node starts with a name.
+The "class" and their respective parameter nodes are the leaf nodes.
+

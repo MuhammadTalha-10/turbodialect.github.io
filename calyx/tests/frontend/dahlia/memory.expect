@@ -1,0 +1,58 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external(1) A = seq_mem_d1(32,8,4);
+    @external(1) B = seq_mem_d2(32,8,8,4,4);
+    @external(1) C = seq_mem_d3(32,8,8,8,4,4,4);
+    const0 = std_const(32,1);
+    const1 = std_const(4,0);
+    const2 = std_const(32,1);
+    const3 = std_const(4,0);
+    const4 = std_const(4,0);
+    const5 = std_const(32,1);
+    const6 = std_const(4,0);
+    const7 = std_const(4,0);
+    const8 = std_const(4,0);
+  }
+  wires {
+    group upd0<"promotable"=1> {
+      A.content_en = 1'd1;
+      A.addr0 = const1.out;
+      A.write_en = 1'd1;
+      A.write_data = const0.out;
+      upd0[done] = A.done;
+    }
+    group upd1<"promotable"=1> {
+      B.content_en = 1'd1;
+      B.addr1 = const4.out;
+      B.addr0 = const3.out;
+      B.write_en = 1'd1;
+      B.write_data = const2.out;
+      upd1[done] = B.done;
+    }
+    group upd2<"promotable"=1> {
+      C.content_en = 1'd1;
+      C.addr2 = const8.out;
+      C.addr1 = const7.out;
+      C.addr0 = const6.out;
+      C.write_en = 1'd1;
+      C.write_data = const5.out;
+      upd2[done] = C.done;
+    }
+  }
+  control {
+    par {
+      @pos(0) upd0;
+      @pos(1) upd1;
+      @pos(2) upd2;
+    }
+  }
+}
+metadata #{
+  0: A[0] := 1;
+  1: B[0][0] := 1;
+  2: C[0][0][0] := 1;
+}#
+

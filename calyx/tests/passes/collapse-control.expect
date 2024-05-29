@@ -1,0 +1,56 @@
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {}
+  wires {
+    group A {
+    }
+    group B {
+    }
+    group C {
+    }
+    group D {
+    }
+    group A___ {
+    }
+  }
+  control {
+    seq {
+      A;
+      B;
+      C;
+      D;
+      A___;
+      par {
+        A;
+        B;
+        C;
+        D;
+      }
+      A___;
+      A;
+      B;
+      C;
+      A___;
+      par {
+        A;
+        B;
+        C;
+      }
+      A___;
+      par {
+        A;
+        seq {
+          B;
+          C;
+        }
+        D;
+      }
+      A___;
+      A;
+      par {
+        B;
+        C;
+      }
+      D;
+    }
+  }
+}

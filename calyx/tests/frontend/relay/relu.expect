@@ -1,0 +1,205 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+import "primitives/math.futil";
+component relu_2x4x8x32() -> () {
+  cells {
+    ref x = seq_mem_d4(32,2,4,8,32,2,3,4,6);
+    ref x1 = seq_mem_d4(32,2,4,8,32,2,3,4,6);
+    __i0 = std_reg(2);
+    __j0 = std_reg(3);
+    __k0 = std_reg(4);
+    __l0 = std_reg(6);
+    add0 = std_add(6);
+    add1 = std_add(4);
+    add2 = std_add(3);
+    add3 = std_add(2);
+    const0 = std_const(2,0);
+    const1 = std_const(2,1);
+    const10 = std_const(3,1);
+    const11 = std_const(2,1);
+    const2 = std_const(3,0);
+    const3 = std_const(3,3);
+    const4 = std_const(4,0);
+    const5 = std_const(4,7);
+    const6 = std_const(6,0);
+    const7 = std_const(6,31);
+    const8 = std_const(6,1);
+    const9 = std_const(4,1);
+    fp_const0 = std_const(32,0);
+    fp_const1 = std_const(32,0);
+    gt0 = std_fp_sgt(32,16,16);
+    le0 = std_le(2);
+    le1 = std_le(3);
+    le2 = std_le(4);
+    le3 = std_le(6);
+    x_read0_0 = std_reg(32);
+    x_read1_0 = std_reg(32);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = __i0.out;
+      le0.right = const1.out;
+    }
+    comb group cond1 {
+      le1.left = __j0.out;
+      le1.right = const3.out;
+    }
+    comb group cond2 {
+      le2.left = __k0.out;
+      le2.right = const5.out;
+    }
+    comb group cond3 {
+      le3.left = __l0.out;
+      le3.right = const7.out;
+    }
+    comb group cond4 {
+      gt0.left = x_read0_0.out;
+      gt0.right = fp_const0.out;
+    }
+    group let0<"promotable"=1> {
+      __i0.in = const0.out;
+      __i0.write_en = 1'd1;
+      let0[done] = __i0.done;
+    }
+    group let1<"promotable"=1> {
+      __j0.in = const2.out;
+      __j0.write_en = 1'd1;
+      let1[done] = __j0.done;
+    }
+    group let2<"promotable"=1> {
+      __k0.in = const4.out;
+      __k0.write_en = 1'd1;
+      let2[done] = __k0.done;
+    }
+    group let3<"promotable"=1> {
+      __l0.in = const6.out;
+      __l0.write_en = 1'd1;
+      let3[done] = __l0.done;
+    }
+    group let4<"promotable"=2> {
+      x_read0_0.in = x.read_data;
+      x_read0_0.write_en = x.done;
+      let4[done] = x_read0_0.done;
+      x.content_en = 1'd1;
+      x.addr3 = __l0.out;
+      x.addr2 = __k0.out;
+      x.addr1 = __j0.out;
+      x.addr0 = __i0.out;
+    }
+    group let5<"promotable"=2> {
+      x_read1_0.in = x.read_data;
+      x_read1_0.write_en = x.done;
+      let5[done] = x_read1_0.done;
+      x.content_en = 1'd1;
+      x.addr3 = __l0.out;
+      x.addr2 = __k0.out;
+      x.addr1 = __j0.out;
+      x.addr0 = __i0.out;
+    }
+    group upd0<"promotable"=1> {
+      x1.content_en = 1'd1;
+      x1.addr3 = __l0.out;
+      x1.addr2 = __k0.out;
+      x1.addr1 = __j0.out;
+      x1.addr0 = __i0.out;
+      x1.write_en = 1'd1;
+      x1.write_data = x_read1_0.out;
+      upd0[done] = x1.done;
+    }
+    group upd1<"promotable"=1> {
+      x1.content_en = 1'd1;
+      x1.addr3 = __l0.out;
+      x1.addr2 = __k0.out;
+      x1.addr1 = __j0.out;
+      x1.addr0 = __i0.out;
+      x1.write_en = 1'd1;
+      x1.write_data = fp_const1.out;
+      upd1[done] = x1.done;
+    }
+    group upd2<"promotable"=1> {
+      __l0.write_en = 1'd1;
+      add0.left = __l0.out;
+      add0.right = const8.out;
+      __l0.in = add0.out;
+      upd2[done] = __l0.done;
+    }
+    group upd3<"promotable"=1> {
+      __k0.write_en = 1'd1;
+      add1.left = __k0.out;
+      add1.right = const9.out;
+      __k0.in = add1.out;
+      upd3[done] = __k0.done;
+    }
+    group upd4<"promotable"=1> {
+      __j0.write_en = 1'd1;
+      add2.left = __j0.out;
+      add2.right = const10.out;
+      __j0.in = add2.out;
+      upd4[done] = __j0.done;
+    }
+    group upd5<"promotable"=1> {
+      __i0.write_en = 1'd1;
+      add3.left = __i0.out;
+      add3.right = const11.out;
+      __i0.in = add3.out;
+      upd5[done] = __i0.done;
+    }
+  }
+  control {
+    seq {
+      @pos(0) let0;
+      @bound(2) while le0.out with cond0 {
+        seq {
+          @pos(1) let1;
+          @bound(4) while le1.out with cond1 {
+            seq {
+              @pos(2) let2;
+              @bound(8) while le2.out with cond2 {
+                seq {
+                  @pos(3) let3;
+                  @bound(32) while le3.out with cond3 {
+                    seq {
+                      @pos(4) let4;
+                      if gt0.out with cond4 {
+                        seq {
+                          @pos(5) let5;
+                          @pos(6) upd0;
+                        }
+                      } else {
+                        @pos(7) upd1;
+                      }
+                      @pos(3) upd2;
+                    }
+                  }
+                  @pos(2) upd3;
+                }
+              }
+              @pos(1) upd4;
+            }
+          }
+          @pos(0) upd5;
+        }
+      }
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    @external x = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    @external x1 = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    relu_2x4x8x32_ = relu_2x4x8x32();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke relu_2x4x8x32_[x=x, x1=x1]()();
+    }
+  }
+}
+metadata #{
+0: let %x1: Tensor[(2, 4, 8, 32), float32] /* ty=Tensor[(2, 4, 8, 32), float32] span=from_string:4:3 */ = nn.relu(%x) /* ty=Tensor[(2, 4, 8, 32), float32] span=from_string:3:45 */;
+}#

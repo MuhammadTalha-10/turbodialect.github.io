@@ -1,0 +1,19 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    w = std_wire(1);
+    zero = std_const(1, 0);
+  }
+
+  wires {
+    comb group cond_while {
+      w.in = zero.out;
+    }
+  }
+
+  control {
+    while w.out with cond_while { seq{} }
+  }
+}

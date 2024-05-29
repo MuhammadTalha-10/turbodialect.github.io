@@ -1,0 +1,42 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    const0 = std_const(2,1);
+    const1 = std_const(2,2);
+    const2 = std_const(32,4);
+    const3 = std_const(32,5);
+    lt0 = std_slt(2);
+    x_0 = std_reg(32);
+    y_0 = std_reg(32);
+  }
+  wires {
+    comb group cond0 {
+      lt0.left = const0.out;
+      lt0.right = const1.out;
+    }
+    group let0<"promotable"=1> {
+      x_0.in = const2.out;
+      x_0.write_en = 1'd1;
+      let0[done] = x_0.done;
+    }
+    group let1<"promotable"=1> {
+      y_0.in = const3.out;
+      y_0.write_en = 1'd1;
+      let1[done] = y_0.done;
+    }
+  }
+  control {
+    if lt0.out with cond0 {
+      @pos(0) let0;
+    } else {
+      @pos(1) let1;
+    }
+  }
+}
+metadata #{
+  0:   let x: ubit<32> = 4;
+  1:   let y: ubit<32> = 5;
+}#
+

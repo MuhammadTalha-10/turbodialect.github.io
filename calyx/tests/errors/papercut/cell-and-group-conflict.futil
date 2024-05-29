@@ -1,0 +1,20 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    incr = std_add(32);
+  }
+
+  wires {
+    group incr {
+      incr.right = 32'd1;
+      incr.left = 32'd1;
+      incr[done] = 1'b1;
+    }
+  }
+
+  control {
+    incr;
+  }
+}

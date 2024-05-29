@@ -1,0 +1,22 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 1) {
+  cells {
+    r = std_reg(1);
+    @external mem = comb_mem_d1(32, 1, 1);
+  }
+  wires {
+    group b {
+      r.write_en = r.out ? 1'd1;
+      r.in = r.out;
+      b[done] = r.done;
+    }
+    comb group c {
+      r.write_en = r.out ? 1'd1;
+      r.in = r.out;
+    }
+    r.write_en = r.out ? 1'd1;
+    r.in = r.out;
+  }
+  control {}
+}

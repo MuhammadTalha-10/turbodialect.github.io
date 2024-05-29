@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/errors/comb-group-in-control.futil
+8 |    group a {
+  |    ^^^^^^^^^ Malformed Structure: Group with constant done condition is invalid. Use `comb group` instead to define a combinational group.

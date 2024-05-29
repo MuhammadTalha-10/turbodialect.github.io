@@ -1,0 +1,4 @@
+---STDERR---
+Error: tests/passes/well-formed/ref-invoke-unmentioned.futil
+33 |      invoke f()();
+   |      ^^^^^^^^^^^^^ Malformed Control: unmentioned ref cell: m

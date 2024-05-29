@@ -1,0 +1,30 @@
+// -x tdcc:dump-fsm -d static-promotion -d post-opt -d group2invoke -d lower -b none
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+    cells {
+      r0 = std_reg(1);
+      r1 = std_reg(1);
+    }
+    wires {
+        group init<"promotable"=1> {
+            init[done] = r0.out;
+        }
+        group exit {
+            exit[done] = r0.out;
+        }
+        group body {
+            body[done] = r0.out;
+        }
+    }
+    control {
+        init;
+        while r0.out {
+            while r1.out {
+                body;
+            }
+        }
+        exit;
+    }
+}

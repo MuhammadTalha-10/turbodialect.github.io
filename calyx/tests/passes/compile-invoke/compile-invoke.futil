@@ -1,0 +1,31 @@
+// -p validate -p compile-invoke -p dead-group-removal
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component exponent(base: 32, exp: 4) -> (out: 32) {
+  cells { pow = std_reg(32); }
+  wires {
+    group write_pow {
+      write_pow[done] = pow.done;
+    }
+    out = pow.out;
+  }
+  control { write_pow; }
+}
+
+component main() -> () {
+  cells {
+    r = std_reg(32);
+    exp0 = exponent();
+    w = std_wire(32);
+  }
+  wires {
+    comb group foo {
+      w.in = 32'd10;
+    }
+  }
+  control {
+    @promotable(4) invoke exp0(base = r.out, exp = 4'd3)();
+    @promotable(4) invoke exp0(base = w.out, exp = 4'd3)() with foo;
+  }
+}

@@ -1,0 +1,12 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+extern "verilog/b.sv" {
+  primitive std_max() -> ();
+}
+
+component max() -> () {
+  cells {}
+  wires {}
+  control {}
+}

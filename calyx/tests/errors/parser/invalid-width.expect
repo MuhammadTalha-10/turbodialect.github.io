@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: Failed to parse `tests/errors/parser/invalid-width.futil`:  --> 4:12
+  |
+4 |     r.in = 0'd1;
+  |            ^--^
+  |
+  = Cannot represent given literal '1' in 0 bits

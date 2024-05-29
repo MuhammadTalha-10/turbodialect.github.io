@@ -1,0 +1,16 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "b.futil";
+import "c.futil";
+
+component pow() -> () {
+  cells {}
+  wires {}
+  control {}
+}
+
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}

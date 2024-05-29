@@ -1,0 +1,104 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component dot() -> () {
+  cells {
+    ref A = seq_mem_d1(32,4,3);
+    ref B = seq_mem_d1(32,4,3);
+    ref out = seq_mem_d1(32,4,3);
+    A_read0_0 = std_reg(32);
+    B_read0_0 = std_reg(32);
+    add0 = std_add(3);
+    bin_read0_0 = std_reg(32);
+    const0 = std_const(3,0);
+    const1 = std_const(3,3);
+    const2 = std_const(3,1);
+    i0 = std_reg(3);
+    le0 = std_le(3);
+    mult_pipe0 = std_mult_pipe(32);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"promotable"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"promotable"=2> {
+      A_read0_0.in = A.read_data;
+      A_read0_0.write_en = A.done;
+      let1[done] = A_read0_0.done;
+      A.content_en = 1'd1;
+      A.addr0 = i0.out;
+    }
+    group let2<"promotable"=2> {
+      B_read0_0.in = B.read_data;
+      B_read0_0.write_en = B.done;
+      let2[done] = B_read0_0.done;
+      B.content_en = 1'd1;
+      B.addr0 = i0.out;
+    }
+    group let3<"promotable"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let3[done] = bin_read0_0.done;
+      mult_pipe0.left = A_read0_0.out;
+      mult_pipe0.right = B_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group upd0<"promotable"=1> {
+      out.content_en = 1'd1;
+      out.addr0 = i0.out;
+      out.write_en = 1'd1;
+      out.write_data = bin_read0_0.out;
+      upd0[done] = out.done;
+    }
+    group upd1<"promotable"=1> {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = add0.out;
+      upd1[done] = i0.done;
+    }
+  }
+  control {
+    seq {
+      @pos(0) let0;
+      @bound(4) while le0.out with cond0 {
+        seq {
+          par {
+            @pos(1) let1;
+            @pos(2) let2;
+          }
+          let3;
+          upd0;
+          @pos(0) upd1;
+        }
+      }
+    }
+  }
+}
+component main() -> () {
+  cells {
+    @external(1) A = seq_mem_d1(32,4,3);
+    @external(1) B = seq_mem_d1(32,4,3);
+    dot0 = dot();
+    @external(1) out = seq_mem_d1(32,4,3);
+  }
+  wires {
+  }
+  control {
+    seq {
+      invoke dot0[A=A, B=B, out=out]()();
+    }
+  }
+}
+metadata #{
+  0:   for (let i: ubit<3> = 0..4) {
+  1:     out[i] := A[i] * B[i];
+  2:     out[i] := A[i] * B[i];
+}#
+

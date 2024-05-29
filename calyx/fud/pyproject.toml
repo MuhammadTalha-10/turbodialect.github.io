@@ -1,0 +1,35 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "fud"
+author = "Samuel Thomas"
+author-email = "sgt43@cornell.edu"
+home-page = "https://docs.calyxir.org/fud/"
+classifiers = ["License :: OSI Approved :: MIT License"]
+description-file = "README.md"
+requires-python = ">=3.7"
+requires = [
+  "pybind11>=2.5.0",
+  "appdirs",
+  "toml",
+  "halo",
+  "termcolor",
+  "packaging",
+  "numpy",
+  "simplejson",
+  "networkx>=2.6"
+]
+
+[tool.flit.metadata.requires-extra]
+remote = [
+       "paramiko",
+       "scp"
+]
+fpga = [
+  "pynq"
+]
+
+[tool.flit.scripts]
+fud = "fud.main:main"

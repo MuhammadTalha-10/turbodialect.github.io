@@ -1,0 +1,973 @@
+import "core.futil";
+// An implementation of Comparator Network Longest Prefix Match (CN-LPM), as described in:
+// "TCAM-based high speed longest prefix matching with fast incremental table updates"
+// Rasmussen et al. (2013) [https://ieeexplore.ieee.org/document/6602288]
+//
+// A lengthier write-up on the design can be found at:
+// https://cgyurgyik.github.io/posts/2021/05/tcam-in-calyx/
+
+// Sets the `out` signal to high if the value `in` matches the
+// `prefix` with the given `length`. For example, given
+//     in = 5'b11000, prefix = 5'b11001, length = 2:
+//     our prefix-match may be represented as `11xxx`, where `x`
+//     is a "don't care" bit. Since `in` does indeed match the
+//     prefix `11xxx`, the `match_line` signal is set to high.
+//
+// Note: the length is an N-bit value,
+//       which means length `0` really means length `1`,
+//       and more generally, `N-1` length represents `N`.
+//       The zero case is caught earlier so that
+//       we only need N bits to represent length.
+component match_element(in: 32, prefix: 32, length: 5) -> (out: 1) {
+  cells {
+    sub = std_sub(5);
+    pad = std_pad(5, 32);
+    rsh0 = std_rsh(32);
+    rsh1 = std_rsh(32);
+    eq  = std_eq(32);
+    r = std_reg(1);
+  }
+  wires {
+    group compare<"static"=1> {
+      sub.left = 5'd31;
+      sub.right = length;
+      pad.in = sub.out;
+
+      rsh0.left = in;
+      rsh0.right = pad.out;
+      rsh1.left = prefix;
+      rsh1.right = pad.out;
+      eq.left = rsh0.out;
+      eq.right = rsh1.out;
+
+      r.write_en = 1'd1;
+      r.in = eq.out;
+      compare[done] = r.done;
+    }
+
+    out = r.out;
+  }
+  control {
+    compare;
+  }
+}
+
+// Given two addresses A and B with their lengths and match line, sets the `X` ports
+// with the address and length of the maximum length (valid) prefix match. The output
+// match line is set as the logical OR of the match lines from A and B. For example,
+//
+//   lenA: 4, mlA: 1, addrA: 0
+//   lenB: 3, mlB: 1, addrB: 1
+//   Since lenA > lenB and the match line of A is high,
+//   `lenX` = 4, `mlX` = 1, and `addrX` = 0.
+component comparator_element(lenA: 5, lenB: 5, addrA: 5, addrB: 5, mlA: 1, mlB: 1) ->
+                            (lenX: 5, addrX: 5, mlX: 1) {
+  cells {
+    gt0 = std_gt(5);
+    or0 = std_or(1);
+    or1 = std_or(1);
+    not0 = std_not(1);
+    and0 = std_and(1);
+
+    len = std_reg(5);
+    addr = std_reg(5);
+    ml = std_reg(1);
+  }
+  wires {
+    comb group select {
+      gt0.left = lenA;
+      gt0.right = lenB;
+      not0.in = mlB;
+      or0.left = not0.out;
+      or0.right = gt0.out;
+      and0.left = mlA;
+      and0.right = or0.out;
+    }
+    group A<"static"=1> {
+      len.write_en = 1'd1;
+      addr.write_en = 1'd1;
+      len.in = lenA;
+      addr.in = addrA;
+      A[done] = len.done & addr.done ? 1'd1;
+    }
+    group B<"static"=1> {
+      len.write_en = 1'd1;
+      addr.write_en = 1'd1;
+      len.in = lenB;
+      addr.in = addrB;
+      B[done] = len.done & addr.done ? 1'd1;
+    }
+    group or_match_line<"static"=1> {
+      or1.left = mlA;
+      or1.right = mlB;
+      ml.write_en = 1'd1;
+      ml.in = or1.out;
+      or_match_line[done] = ml.done;
+    }
+
+    mlX = ml.out;
+    addrX = addr.out;
+    lenX = len.out;
+  }
+  control {
+    par {
+      if and0.out with select { A; } else { B; }
+      or_match_line;
+    }
+  }
+}
+
+// A ternary content-addressable memory (TCAM) for IPv4, implemented
+// using CN-LPM. One can either write to the TCAM or search the TCAM.
+// Each stage in the TCAM is separated by registers to allow
+// pipelining in the future.
+//
+// To write to the TCAM:
+// 1. Set the `write_en` signal high.
+// 2. Provide an `in` value and a corresponding `prefix_len`.
+//    For example, if you want to represent the prefix-match
+//    `101xx`, you'd pass in `0b'00101` with prefix_len `3`.
+//
+// To search the TCAM:
+// 1. Set the `search_en` signal high.
+// 2. Provide an `in` value indicating the data you're searching.
+// 3. Once the `done` signal is high, the `index` signal will contain the result
+//    till the next invocation.
+//
+// The `write_en` and `search_en` signals should NOT be set to high
+// in the same invocation. If a zero-length prefix is written to the TCAM,
+// then invalid searches will be set to the corresponding index. Otherwise,
+// invalid searches will be defaulted to index zero.
+component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_index: 5) -> (index: 5) {
+  cells {
+    write_en_reg = std_reg(1);
+    search_en_reg = std_reg(1);
+    ce40_reg = std_reg(1);
+    p0 = std_reg(32);
+    p1 = std_reg(32);
+    p2 = std_reg(32);
+    p3 = std_reg(32);
+    p4 = std_reg(32);
+    p5 = std_reg(32);
+    p6 = std_reg(32);
+    p7 = std_reg(32);
+    p8 = std_reg(32);
+    p9 = std_reg(32);
+    p10 = std_reg(32);
+    p11 = std_reg(32);
+    p12 = std_reg(32);
+    p13 = std_reg(32);
+    p14 = std_reg(32);
+    p15 = std_reg(32);
+    p16 = std_reg(32);
+    p17 = std_reg(32);
+    p18 = std_reg(32);
+    p19 = std_reg(32);
+    p20 = std_reg(32);
+    p21 = std_reg(32);
+    p22 = std_reg(32);
+    p23 = std_reg(32);
+    p24 = std_reg(32);
+    p25 = std_reg(32);
+    p26 = std_reg(32);
+    p27 = std_reg(32);
+    p28 = std_reg(32);
+    p29 = std_reg(32);
+    p30 = std_reg(32);
+    p31 = std_reg(32);
+    l0 = std_reg(5);
+    l1 = std_reg(5);
+    l2 = std_reg(5);
+    l3 = std_reg(5);
+    l4 = std_reg(5);
+    l5 = std_reg(5);
+    l6 = std_reg(5);
+    l7 = std_reg(5);
+    l8 = std_reg(5);
+    l9 = std_reg(5);
+    l10 = std_reg(5);
+    l11 = std_reg(5);
+    l12 = std_reg(5);
+    l13 = std_reg(5);
+    l14 = std_reg(5);
+    l15 = std_reg(5);
+    l16 = std_reg(5);
+    l17 = std_reg(5);
+    l18 = std_reg(5);
+    l19 = std_reg(5);
+    l20 = std_reg(5);
+    l21 = std_reg(5);
+    l22 = std_reg(5);
+    l23 = std_reg(5);
+    l24 = std_reg(5);
+    l25 = std_reg(5);
+    l26 = std_reg(5);
+    l27 = std_reg(5);
+    l28 = std_reg(5);
+    l29 = std_reg(5);
+    l30 = std_reg(5);
+    l31 = std_reg(5);
+
+    is_index0 = std_eq(5);
+    is_index1 = std_eq(5);
+    is_index2 = std_eq(5);
+    is_index3 = std_eq(5);
+    is_index4 = std_eq(5);
+    is_index5 = std_eq(5);
+    is_index6 = std_eq(5);
+    is_index7 = std_eq(5);
+    is_index8 = std_eq(5);
+    is_index9 = std_eq(5);
+    is_index10 = std_eq(5);
+    is_index11 = std_eq(5);
+    is_index12 = std_eq(5);
+    is_index13 = std_eq(5);
+    is_index14 = std_eq(5);
+    is_index15 = std_eq(5);
+    is_index16 = std_eq(5);
+    is_index17 = std_eq(5);
+    is_index18 = std_eq(5);
+    is_index19 = std_eq(5);
+    is_index20 = std_eq(5);
+    is_index21 = std_eq(5);
+    is_index22 = std_eq(5);
+    is_index23 = std_eq(5);
+    is_index24 = std_eq(5);
+    is_index25 = std_eq(5);
+    is_index26 = std_eq(5);
+    is_index27 = std_eq(5);
+    is_index28 = std_eq(5);
+    is_index29 = std_eq(5);
+    is_index30 = std_eq(5);
+    is_index31 = std_eq(5);
+
+    zero_index = std_reg(5);
+    w_eq = std_eq(1);
+    s_eq = std_eq(1);
+    z_eq = std_eq(6);
+    is_invalid = std_eq(1);
+
+    slice = std_slice(6, 5);
+    sub = std_sub(6);
+
+    me0 = match_element();
+    me1 = match_element();
+    me2 = match_element();
+    me3 = match_element();
+    me4 = match_element();
+    me5 = match_element();
+    me6 = match_element();
+    me7 = match_element();
+    me8 = match_element();
+    me9 = match_element();
+    me10 = match_element();
+    me11 = match_element();
+    me12 = match_element();
+    me13 = match_element();
+    me14 = match_element();
+    me15 = match_element();
+    me16 = match_element();
+    me17 = match_element();
+    me18 = match_element();
+    me19 = match_element();
+    me20 = match_element();
+    me21 = match_element();
+    me22 = match_element();
+    me23 = match_element();
+    me24 = match_element();
+    me25 = match_element();
+    me26 = match_element();
+    me27 = match_element();
+    me28 = match_element();
+    me29 = match_element();
+    me30 = match_element();
+    me31 = match_element();
+
+    ce00 = comparator_element();
+    ce01 = comparator_element();
+    ce02 = comparator_element();
+    ce03 = comparator_element();
+    ce04 = comparator_element();
+    ce05 = comparator_element();
+    ce06 = comparator_element();
+    ce07 = comparator_element();
+    ce08 = comparator_element();
+    ce09 = comparator_element();
+    ce010 = comparator_element();
+    ce011 = comparator_element();
+    ce012 = comparator_element();
+    ce013 = comparator_element();
+    ce014 = comparator_element();
+    ce015 = comparator_element();
+    ce10 = comparator_element();
+    ce11 = comparator_element();
+    ce12 = comparator_element();
+    ce13 = comparator_element();
+    ce14 = comparator_element();
+    ce15 = comparator_element();
+    ce16 = comparator_element();
+    ce17 = comparator_element();
+    ce20 = comparator_element();
+    ce21 = comparator_element();
+    ce22 = comparator_element();
+    ce23 = comparator_element();
+    ce30 = comparator_element();
+    ce31 = comparator_element();
+    ce40 = comparator_element();
+
+
+    comb_reg0 = std_reg(1);
+    comb_reg1 = std_reg(1);
+    comb_reg2 = std_reg(1);
+    comb_reg3 = std_reg(1);
+    comb_reg4 = std_reg(1);
+    comb_reg5 = std_reg(1);
+    comb_reg6 = std_reg(1);
+    comb_reg7 = std_reg(1);
+    comb_reg8 = std_reg(1);
+    comb_reg9 = std_reg(1);
+    comb_reg10 = std_reg(1);
+    comb_reg11 = std_reg(1);
+    comb_reg12 = std_reg(1);
+    comb_reg13 = std_reg(1);
+    comb_reg14 = std_reg(1);
+    comb_reg15 = std_reg(1);
+    comb_reg16 = std_reg(1);
+    comb_reg17 = std_reg(1);
+    comb_reg18 = std_reg(1);
+    comb_reg19 = std_reg(1);
+    comb_reg20 = std_reg(1);
+    comb_reg21 = std_reg(1);
+    comb_reg22 = std_reg(1);
+    comb_reg23 = std_reg(1);
+    comb_reg24 = std_reg(1);
+    comb_reg25 = std_reg(1);
+    comb_reg26 = std_reg(1);
+    comb_reg27 = std_reg(1);
+    comb_reg28 = std_reg(1);
+    comb_reg29 = std_reg(1);
+    comb_reg30 = std_reg(1);
+    comb_reg31 = std_reg(1);
+
+    out = std_reg(5);
+  }
+  wires {
+    group write_write_en_reg {
+      write_en_reg.write_en = 1'd1; 
+      write_en_reg.in = write_en; 
+      write_write_en_reg[done] = write_en_reg.done; 
+    }
+    group write_search_en_reg {
+      search_en_reg.write_en = 1'd1; 
+      search_en_reg.in = search_en; 
+      write_search_en_reg[done] = search_en_reg.done; 
+    }
+    group write_ce40_reg {
+      ce40_reg.write_en = 1'd1; 
+      ce40_reg.in = ce40.mlX;
+      write_ce40_reg[done] = ce40_reg.done; 
+    }
+    comb group is_length_zero {
+      z_eq.left = 6'd0;
+      z_eq.right = prefix_len;
+    }
+    group write_zero<"static"=1> {
+      zero_index.write_en = 1'd1;
+      zero_index.in = write_index;
+      write_zero[done] = zero_index.done;
+    }
+    group write0<"static"=1> {
+      p0.write_en = write_en;
+      l0.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l0.in = slice.out;
+      p0.in = in;
+      write0[done] = p0.done & l0.done ? 1'd1;
+    }
+    group write1<"static"=1> {
+      p1.write_en = write_en;
+      l1.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l1.in = slice.out;
+      p1.in = in;
+      write1[done] = p1.done & l1.done ? 1'd1;
+    }
+    group write2<"static"=1> {
+      p2.write_en = write_en;
+      l2.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l2.in = slice.out;
+      p2.in = in;
+      write2[done] = p2.done & l2.done ? 1'd1;
+    }
+    group write3<"static"=1> {
+      p3.write_en = write_en;
+      l3.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l3.in = slice.out;
+      p3.in = in;
+      write3[done] = p3.done & l3.done ? 1'd1;
+    }
+    group write4<"static"=1> {
+      p4.write_en = write_en;
+      l4.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l4.in = slice.out;
+      p4.in = in;
+      write4[done] = p4.done & l4.done ? 1'd1;
+    }
+    group write5<"static"=1> {
+      p5.write_en = write_en;
+      l5.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l5.in = slice.out;
+      p5.in = in;
+      write5[done] = p5.done & l5.done ? 1'd1;
+    }
+    group write6<"static"=1> {
+      p6.write_en = write_en;
+      l6.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l6.in = slice.out;
+      p6.in = in;
+      write6[done] = p6.done & l6.done ? 1'd1;
+    }
+    group write7<"static"=1> {
+      p7.write_en = write_en;
+      l7.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l7.in = slice.out;
+      p7.in = in;
+      write7[done] = p7.done & l7.done ? 1'd1;
+    }
+    group write8<"static"=1> {
+      p8.write_en = write_en;
+      l8.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l8.in = slice.out;
+      p8.in = in;
+      write8[done] = p8.done & l8.done ? 1'd1;
+    }
+    group write9<"static"=1> {
+      p9.write_en = write_en;
+      l9.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l9.in = slice.out;
+      p9.in = in;
+      write9[done] = p9.done & l9.done ? 1'd1;
+    }
+    group write10<"static"=1> {
+      p10.write_en = write_en;
+      l10.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l10.in = slice.out;
+      p10.in = in;
+      write10[done] = p10.done & l10.done ? 1'd1;
+    }
+    group write11<"static"=1> {
+      p11.write_en = write_en;
+      l11.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l11.in = slice.out;
+      p11.in = in;
+      write11[done] = p11.done & l11.done ? 1'd1;
+    }
+    group write12<"static"=1> {
+      p12.write_en = write_en;
+      l12.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l12.in = slice.out;
+      p12.in = in;
+      write12[done] = p12.done & l12.done ? 1'd1;
+    }
+    group write13<"static"=1> {
+      p13.write_en = write_en;
+      l13.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l13.in = slice.out;
+      p13.in = in;
+      write13[done] = p13.done & l13.done ? 1'd1;
+    }
+    group write14<"static"=1> {
+      p14.write_en = write_en;
+      l14.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l14.in = slice.out;
+      p14.in = in;
+      write14[done] = p14.done & l14.done ? 1'd1;
+    }
+    group write15<"static"=1> {
+      p15.write_en = write_en;
+      l15.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l15.in = slice.out;
+      p15.in = in;
+      write15[done] = p15.done & l15.done ? 1'd1;
+    }
+    group write16<"static"=1> {
+      p16.write_en = write_en;
+      l16.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l16.in = slice.out;
+      p16.in = in;
+      write16[done] = p16.done & l16.done ? 1'd1;
+    }
+    group write17<"static"=1> {
+      p17.write_en = write_en;
+      l17.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l17.in = slice.out;
+      p17.in = in;
+      write17[done] = p17.done & l17.done ? 1'd1;
+    }
+    group write18<"static"=1> {
+      p18.write_en = write_en;
+      l18.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l18.in = slice.out;
+      p18.in = in;
+      write18[done] = p18.done & l18.done ? 1'd1;
+    }
+    group write19<"static"=1> {
+      p19.write_en = write_en;
+      l19.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l19.in = slice.out;
+      p19.in = in;
+      write19[done] = p19.done & l19.done ? 1'd1;
+    }
+    group write20<"static"=1> {
+      p20.write_en = write_en;
+      l20.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l20.in = slice.out;
+      p20.in = in;
+      write20[done] = p20.done & l20.done ? 1'd1;
+    }
+    group write21<"static"=1> {
+      p21.write_en = write_en;
+      l21.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l21.in = slice.out;
+      p21.in = in;
+      write21[done] = p21.done & l21.done ? 1'd1;
+    }
+    group write22<"static"=1> {
+      p22.write_en = write_en;
+      l22.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l22.in = slice.out;
+      p22.in = in;
+      write22[done] = p22.done & l22.done ? 1'd1;
+    }
+    group write23<"static"=1> {
+      p23.write_en = write_en;
+      l23.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l23.in = slice.out;
+      p23.in = in;
+      write23[done] = p23.done & l23.done ? 1'd1;
+    }
+    group write24<"static"=1> {
+      p24.write_en = write_en;
+      l24.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l24.in = slice.out;
+      p24.in = in;
+      write24[done] = p24.done & l24.done ? 1'd1;
+    }
+    group write25<"static"=1> {
+      p25.write_en = write_en;
+      l25.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l25.in = slice.out;
+      p25.in = in;
+      write25[done] = p25.done & l25.done ? 1'd1;
+    }
+    group write26<"static"=1> {
+      p26.write_en = write_en;
+      l26.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l26.in = slice.out;
+      p26.in = in;
+      write26[done] = p26.done & l26.done ? 1'd1;
+    }
+    group write27<"static"=1> {
+      p27.write_en = write_en;
+      l27.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l27.in = slice.out;
+      p27.in = in;
+      write27[done] = p27.done & l27.done ? 1'd1;
+    }
+    group write28<"static"=1> {
+      p28.write_en = write_en;
+      l28.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l28.in = slice.out;
+      p28.in = in;
+      write28[done] = p28.done & l28.done ? 1'd1;
+    }
+    group write29<"static"=1> {
+      p29.write_en = write_en;
+      l29.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l29.in = slice.out;
+      p29.in = in;
+      write29[done] = p29.done & l29.done ? 1'd1;
+    }
+    group write30<"static"=1> {
+      p30.write_en = write_en;
+      l30.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l30.in = slice.out;
+      p30.in = in;
+      write30[done] = p30.done & l30.done ? 1'd1;
+    }
+    group write31<"static"=1> {
+      p31.write_en = write_en;
+      l31.write_en = write_en;
+      sub.left = prefix_len;
+      sub.right = 6'd1;
+      slice.in = sub.out;
+      l31.in = slice.out;
+      p31.in = in;
+      write31[done] = p31.done & l31.done ? 1'd1;
+    }
+    group find_write_index {
+      is_index0.left = 5'd0;
+      is_index1.left = 5'd1;
+      is_index2.left = 5'd2;
+      is_index3.left = 5'd3;
+      is_index4.left = 5'd4;
+      is_index5.left = 5'd5;
+      is_index6.left = 5'd6;
+      is_index7.left = 5'd7;
+      is_index8.left = 5'd8;
+      is_index9.left = 5'd9;
+      is_index10.left = 5'd10;
+      is_index11.left = 5'd11;
+      is_index12.left = 5'd12;
+      is_index13.left = 5'd13;
+      is_index14.left = 5'd14;
+      is_index15.left = 5'd15;
+      is_index16.left = 5'd16;
+      is_index17.left = 5'd17;
+      is_index18.left = 5'd18;
+      is_index19.left = 5'd19;
+      is_index20.left = 5'd20;
+      is_index21.left = 5'd21;
+      is_index22.left = 5'd22;
+      is_index23.left = 5'd23;
+      is_index24.left = 5'd24;
+      is_index25.left = 5'd25;
+      is_index26.left = 5'd26;
+      is_index27.left = 5'd27;
+      is_index28.left = 5'd28;
+      is_index29.left = 5'd29;
+      is_index30.left = 5'd30;
+      is_index31.left = 5'd31;
+      is_index0.right = write_index;
+      is_index1.right = write_index;
+      is_index2.right = write_index;
+      is_index3.right = write_index;
+      is_index4.right = write_index;
+      is_index5.right = write_index;
+      is_index6.right = write_index;
+      is_index7.right = write_index;
+      is_index8.right = write_index;
+      is_index9.right = write_index;
+      is_index10.right = write_index;
+      is_index11.right = write_index;
+      is_index12.right = write_index;
+      is_index13.right = write_index;
+      is_index14.right = write_index;
+      is_index15.right = write_index;
+      is_index16.right = write_index;
+      is_index17.right = write_index;
+      is_index18.right = write_index;
+      is_index19.right = write_index;
+      is_index20.right = write_index;
+      is_index21.right = write_index;
+      is_index22.right = write_index;
+      is_index23.right = write_index;
+      is_index24.right = write_index;
+      is_index25.right = write_index;
+      is_index26.right = write_index;
+      is_index27.right = write_index;
+      is_index28.right = write_index;
+      is_index29.right = write_index;
+      is_index30.right = write_index;
+      is_index31.right = write_index;
+      comb_reg0.in = is_index0.out;
+      comb_reg0.write_en = 1'd1;
+      comb_reg1.in = is_index1.out;
+      comb_reg1.write_en = 1'd1;
+      comb_reg2.in = is_index2.out;
+      comb_reg2.write_en = 1'd1;
+      comb_reg3.in = is_index3.out;
+      comb_reg3.write_en = 1'd1;
+      comb_reg4.in = is_index4.out;
+      comb_reg4.write_en = 1'd1;
+      comb_reg5.in = is_index5.out;
+      comb_reg5.write_en = 1'd1;
+      comb_reg6.in = is_index6.out;
+      comb_reg6.write_en = 1'd1;
+      comb_reg7.in = is_index7.out;
+      comb_reg7.write_en = 1'd1;
+      comb_reg8.in = is_index8.out;
+      comb_reg8.write_en = 1'd1;
+      comb_reg9.in = is_index9.out;
+      comb_reg9.write_en = 1'd1;
+      comb_reg10.in = is_index10.out;
+      comb_reg10.write_en = 1'd1;
+      comb_reg11.in = is_index11.out;
+      comb_reg11.write_en = 1'd1;
+      comb_reg12.in = is_index12.out;
+      comb_reg12.write_en = 1'd1;
+      comb_reg13.in = is_index13.out;
+      comb_reg13.write_en = 1'd1;
+      comb_reg14.in = is_index14.out;
+      comb_reg14.write_en = 1'd1;
+      comb_reg15.in = is_index15.out;
+      comb_reg15.write_en = 1'd1;
+      comb_reg16.in = is_index16.out;
+      comb_reg16.write_en = 1'd1;
+      comb_reg17.in = is_index17.out;
+      comb_reg17.write_en = 1'd1;
+      comb_reg18.in = is_index18.out;
+      comb_reg18.write_en = 1'd1;
+      comb_reg19.in = is_index19.out;
+      comb_reg19.write_en = 1'd1;
+      comb_reg20.in = is_index20.out;
+      comb_reg20.write_en = 1'd1;
+      comb_reg21.in = is_index21.out;
+      comb_reg21.write_en = 1'd1;
+      comb_reg22.in = is_index22.out;
+      comb_reg22.write_en = 1'd1;
+      comb_reg23.in = is_index23.out;
+      comb_reg23.write_en = 1'd1;
+      comb_reg24.in = is_index24.out;
+      comb_reg24.write_en = 1'd1;
+      comb_reg25.in = is_index25.out;
+      comb_reg25.write_en = 1'd1;
+      comb_reg26.in = is_index26.out;
+      comb_reg26.write_en = 1'd1;
+      comb_reg27.in = is_index27.out;
+      comb_reg27.write_en = 1'd1;
+      comb_reg28.in = is_index28.out;
+      comb_reg28.write_en = 1'd1;
+      comb_reg29.in = is_index29.out;
+      comb_reg29.write_en = 1'd1;
+      comb_reg30.in = is_index30.out;
+      comb_reg30.write_en = 1'd1;
+      comb_reg31.in = is_index31.out;
+      comb_reg31.write_en = 1'd1;
+      find_write_index[done] = comb_reg0.done;
+    }
+    group default_to_zero_length_index<"static"=1> {
+      out.write_en = 1'd1;
+      out.in = zero_index.out;
+      default_to_zero_length_index[done] = out.done;
+    }
+    group save_index<"static"=1> {
+      out.write_en = 1'd1;
+      out.in = ce40.addrX;
+      save_index[done] = out.done;
+    }
+
+    index = out.out;
+  }
+
+  control {
+    write_write_en_reg; 
+    write_search_en_reg;
+    par {
+      if write_en_reg.out {
+        if z_eq.out with is_length_zero {
+          write_zero;
+        } else {
+          seq {
+            find_write_index;
+            par {
+              if comb_reg0.out  { write0; }
+              if comb_reg1.out  { write1; }
+              if comb_reg2.out  { write2; }
+              if comb_reg3.out  { write3; }
+              if comb_reg4.out  { write4; }
+              if comb_reg5.out  { write5; }
+              if comb_reg6.out  { write6; }
+              if comb_reg7.out  { write7; }
+              if comb_reg8.out  { write8; }
+              if comb_reg9.out  { write9; }
+              if comb_reg10.out { write10; }
+              if comb_reg11.out { write11; }
+              if comb_reg12.out { write12; }
+              if comb_reg13.out { write13; }
+              if comb_reg14.out { write14; }
+              if comb_reg15.out { write15; }
+              if comb_reg16.out { write16; }
+              if comb_reg17.out { write17; }
+              if comb_reg18.out { write18; }
+              if comb_reg19.out { write19; }
+              if comb_reg20.out { write20; }
+              if comb_reg21.out { write21; }
+              if comb_reg22.out { write22; }
+              if comb_reg23.out { write23; }
+              if comb_reg24.out { write24; }
+              if comb_reg25.out { write25; }
+              if comb_reg26.out { write26; }
+              if comb_reg27.out { write27; }
+              if comb_reg28.out { write28; }
+              if comb_reg29.out { write29; }
+              if comb_reg30.out { write30; }
+              if comb_reg31.out { write31; }
+            }
+          }
+        }
+      }
+      if search_en_reg.out {
+        seq {
+          par {
+            invoke me0(in=in, prefix=p0.out, length=l0.out)();
+            invoke me1(in=in, prefix=p1.out, length=l1.out)();
+            invoke me2(in=in, prefix=p2.out, length=l2.out)();
+            invoke me3(in=in, prefix=p3.out, length=l3.out)();
+            invoke me4(in=in, prefix=p4.out, length=l4.out)();
+            invoke me5(in=in, prefix=p5.out, length=l5.out)();
+            invoke me6(in=in, prefix=p6.out, length=l6.out)();
+            invoke me7(in=in, prefix=p7.out, length=l7.out)();
+            invoke me8(in=in, prefix=p8.out, length=l8.out)();
+            invoke me9(in=in, prefix=p9.out, length=l9.out)();
+            invoke me10(in=in, prefix=p10.out, length=l10.out)();
+            invoke me11(in=in, prefix=p11.out, length=l11.out)();
+            invoke me12(in=in, prefix=p12.out, length=l12.out)();
+            invoke me13(in=in, prefix=p13.out, length=l13.out)();
+            invoke me14(in=in, prefix=p14.out, length=l14.out)();
+            invoke me15(in=in, prefix=p15.out, length=l15.out)();
+            invoke me16(in=in, prefix=p16.out, length=l16.out)();
+            invoke me17(in=in, prefix=p17.out, length=l17.out)();
+            invoke me18(in=in, prefix=p18.out, length=l18.out)();
+            invoke me19(in=in, prefix=p19.out, length=l19.out)();
+            invoke me20(in=in, prefix=p20.out, length=l20.out)();
+            invoke me21(in=in, prefix=p21.out, length=l21.out)();
+            invoke me22(in=in, prefix=p22.out, length=l22.out)();
+            invoke me23(in=in, prefix=p23.out, length=l23.out)();
+            invoke me24(in=in, prefix=p24.out, length=l24.out)();
+            invoke me25(in=in, prefix=p25.out, length=l25.out)();
+            invoke me26(in=in, prefix=p26.out, length=l26.out)();
+            invoke me27(in=in, prefix=p27.out, length=l27.out)();
+            invoke me28(in=in, prefix=p28.out, length=l28.out)();
+            invoke me29(in=in, prefix=p29.out, length=l29.out)();
+            invoke me30(in=in, prefix=p30.out, length=l30.out)();
+            invoke me31(in=in, prefix=p31.out, length=l31.out)();
+          }
+          par {
+            invoke ce00(lenA=l0.out, lenB=l1.out, addrA=5'd0, addrB=5'd1, mlA=me0.out, mlB=me1.out)();
+            invoke ce01(lenA=l2.out, lenB=l3.out, addrA=5'd2, addrB=5'd3, mlA=me2.out, mlB=me3.out)();
+            invoke ce02(lenA=l4.out, lenB=l5.out, addrA=5'd4, addrB=5'd5, mlA=me4.out, mlB=me5.out)();
+            invoke ce03(lenA=l6.out, lenB=l7.out, addrA=5'd6, addrB=5'd7, mlA=me6.out, mlB=me7.out)();
+            invoke ce04(lenA=l8.out, lenB=l9.out, addrA=5'd8, addrB=5'd9, mlA=me8.out, mlB=me9.out)();
+            invoke ce05(lenA=l10.out, lenB=l11.out, addrA=5'd10, addrB=5'd11, mlA=me10.out, mlB=me11.out)();
+            invoke ce06(lenA=l12.out, lenB=l13.out, addrA=5'd12, addrB=5'd13, mlA=me12.out, mlB=me13.out)();
+            invoke ce07(lenA=l14.out, lenB=l15.out, addrA=5'd14, addrB=5'd15, mlA=me14.out, mlB=me15.out)();
+            invoke ce08(lenA=l16.out, lenB=l17.out, addrA=5'd16, addrB=5'd17, mlA=me16.out, mlB=me17.out)();
+            invoke ce09(lenA=l18.out, lenB=l19.out, addrA=5'd18, addrB=5'd19, mlA=me18.out, mlB=me19.out)();
+            invoke ce010(lenA=l20.out, lenB=l21.out, addrA=5'd20, addrB=5'd21, mlA=me20.out, mlB=me21.out)();
+            invoke ce011(lenA=l22.out, lenB=l23.out, addrA=5'd22, addrB=5'd23, mlA=me22.out, mlB=me23.out)();
+            invoke ce012(lenA=l24.out, lenB=l25.out, addrA=5'd24, addrB=5'd25, mlA=me24.out, mlB=me25.out)();
+            invoke ce013(lenA=l26.out, lenB=l27.out, addrA=5'd26, addrB=5'd27, mlA=me26.out, mlB=me27.out)();
+            invoke ce014(lenA=l28.out, lenB=l29.out, addrA=5'd28, addrB=5'd29, mlA=me28.out, mlB=me29.out)();
+            invoke ce015(lenA=l30.out, lenB=l31.out, addrA=5'd30, addrB=5'd31, mlA=me30.out, mlB=me31.out)();
+          }
+          par {
+            invoke ce10(lenA=ce00.lenX, lenB=ce01.lenX, addrA=ce00.addrX, addrB=ce01.addrX, mlA=ce00.mlX, mlB=ce01.mlX)();
+            invoke ce11(lenA=ce02.lenX, lenB=ce03.lenX, addrA=ce02.addrX, addrB=ce03.addrX, mlA=ce02.mlX, mlB=ce03.mlX)();
+            invoke ce12(lenA=ce04.lenX, lenB=ce05.lenX, addrA=ce04.addrX, addrB=ce05.addrX, mlA=ce04.mlX, mlB=ce05.mlX)();
+            invoke ce13(lenA=ce06.lenX, lenB=ce07.lenX, addrA=ce06.addrX, addrB=ce07.addrX, mlA=ce06.mlX, mlB=ce07.mlX)();
+            invoke ce14(lenA=ce08.lenX, lenB=ce09.lenX, addrA=ce08.addrX, addrB=ce09.addrX, mlA=ce08.mlX, mlB=ce09.mlX)();
+            invoke ce15(lenA=ce010.lenX, lenB=ce011.lenX, addrA=ce010.addrX, addrB=ce011.addrX, mlA=ce010.mlX, mlB=ce011.mlX)();
+            invoke ce16(lenA=ce012.lenX, lenB=ce013.lenX, addrA=ce012.addrX, addrB=ce013.addrX, mlA=ce012.mlX, mlB=ce013.mlX)();
+            invoke ce17(lenA=ce014.lenX, lenB=ce015.lenX, addrA=ce014.addrX, addrB=ce015.addrX, mlA=ce014.mlX, mlB=ce015.mlX)();
+          }
+          par {
+            invoke ce20(lenA=ce10.lenX, lenB=ce11.lenX, addrA=ce10.addrX, addrB=ce11.addrX, mlA=ce10.mlX, mlB=ce11.mlX)();
+            invoke ce21(lenA=ce12.lenX, lenB=ce13.lenX, addrA=ce12.addrX, addrB=ce13.addrX, mlA=ce12.mlX, mlB=ce13.mlX)();
+            invoke ce22(lenA=ce14.lenX, lenB=ce15.lenX, addrA=ce14.addrX, addrB=ce15.addrX, mlA=ce14.mlX, mlB=ce15.mlX)();
+            invoke ce23(lenA=ce16.lenX, lenB=ce17.lenX, addrA=ce16.addrX, addrB=ce17.addrX, mlA=ce16.mlX, mlB=ce17.mlX)();
+          }
+          par {
+            invoke ce30(lenA=ce20.lenX, lenB=ce21.lenX, addrA=ce20.addrX, addrB=ce21.addrX, mlA=ce20.mlX, mlB=ce21.mlX)();
+            invoke ce31(lenA=ce22.lenX, lenB=ce23.lenX, addrA=ce22.addrX, addrB=ce23.addrX, mlA=ce22.mlX, mlB=ce23.mlX)();
+          }
+          invoke ce40(lenA=ce30.lenX, lenB=ce31.lenX, addrA=ce30.addrX, addrB=ce31.addrX, mlA=ce30.mlX, mlB=ce31.mlX)();
+          write_ce40_reg;
+          // If the final comparator has a valid value then save it.
+          if ce40_reg.out { save_index; } else { default_to_zero_length_index; }
+        }
+      }
+    }
+  }
+}

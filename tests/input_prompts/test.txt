@@ -1,0 +1,1 @@
+create a RV32I decoder that decodes all the instrutions of RV32I. It contains an input for the .

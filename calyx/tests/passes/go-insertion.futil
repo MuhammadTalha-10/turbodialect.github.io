@@ -1,0 +1,19 @@
+// -p go-insertion
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    add = std_add(32);
+  }
+
+  wires {
+    group do_add {
+      add.right = 32'd4;
+      add.left = 32'd4;
+      do_add[done] = 1'b1;
+    }
+  }
+  control {}
+}

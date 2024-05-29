@@ -1,0 +1,23 @@
+extern "pipelined.sv" {
+    // A latency-sensitive multiplier that takes 4 cycles to compute its result.
+    static<4> primitive pipelined_mult[WIDTH] (
+        @clk clk: 1,
+        @data left: WIDTH,
+        @data right: WIDTH
+    ) -> (
+        out: WIDTH
+    );
+
+    // A latency-sensitive multiplier that takes 4 cycles to compute its result.
+    static<4> primitive pipelined_fp_smult [
+        WIDTH, INT_WIDTH, FRAC_WIDTH
+    ] (
+        @clk clk: 1,
+        @reset reset: 1,
+        @data left: WIDTH,
+        @data right: WIDTH
+    ) -> (
+        out: WIDTH
+    );
+
+}

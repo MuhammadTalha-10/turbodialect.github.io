@@ -1,0 +1,46 @@
+// -p infer-share -x infer-share:print-static-analysis=<err>
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component example() -> () {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    static<4> group A {
+    }
+    static<1> group B {
+    }
+    static<3> group C {
+    }
+    static<5> group D {
+    }
+  }
+  control {
+    static par {
+      static seq {
+        A;
+        static repeat 10 {
+          B;
+        }
+        C;
+      }
+      static repeat 3 {
+        D;
+      }
+    }
+  }
+}
+
+
+component main() -> () {
+  cells {
+    e = example();
+  }
+
+  wires {
+  }
+
+  control {
+    invoke e()();
+  }
+}

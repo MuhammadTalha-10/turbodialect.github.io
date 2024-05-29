@@ -1,0 +1,8 @@
+---CODE---
+1
+---STDERR---
+Error: tests/errors/papercut/read-missing-write.futil
+11 |    group incr {
+   |    ^^^^^^^^^^^^ [Papercut] Required signal not driven inside the group.
+When reading the port `mem.read_data', the ports [mem.addr0] must be written to.
+The primitive type `comb_mem_d1' requires this invariant.
